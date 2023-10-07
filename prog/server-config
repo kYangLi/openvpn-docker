@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Source the config file
+source ovpn-server-param.sh
+
+echo $DNS_SERVER
+echo ${ROUTES[@]}
+
+# Convert boolean values to corresponding commands
+if [ "${USE_TAP_INSTEAD_TUN}" = true ] ; then
+    USE_TAP_INSTEAD_TUN="-t"
+else
+    USE_TAP_INSTEAD_TUN=""
+fi
+
+if [ "${USE_OWN_DNS}" = true ] ; then
+    OWN_DNS=(
+        "-p" "block-outside-dns"
+        "-p" "dhcp-option DNS ${DNS_SERVER}"
+    )
+else
+    OWN_DNS=("-b")
+fi
+
+echo ${OWN_DNS[@]} 
+
+if [ "${DYN_CLIENT_IP}" = true ] ; then
+    CLIENT_IP=("-e" "ifconfig-pool-persist /etc/openvpn/ipp.keep")
+else
+    CLIENT_IP=("-e" "ifconfig-pool-persist /etc/openvpn/ipp.keep 0")
+fi
+
+# Generate OpenVPN configuration
+docker compose run --rm openvpn                            \
+  ovpn_genconfig -N -c -d -D ${USE_TAP_INSTEAD_TUN}           \
+    -u "${OVPN_SERVER_URL}"                                \
+    -s "${OVPN_SERVER_SUBNET}"                             \
+    -e "topology subnet"                                   \
+    -k "10 120"                                            \
+    -a "SHA256"                                            \
+    -C "AES-128-GCM"                                       \
+    -T "TLS-ECDHE-ECDSA-WITH-AES-128-GCM-SHA256"           \
+    -e "ecdh-curve prime256v1"                             \
+    -e "tls-version-min 1.2"                               \
+    -E "tls-version-min 1.2"                               \
+    -E "auth-nocache"                                      \
+    -e "tun-mtu 1500"                                      \
+    -e "mssfix 1300"                                       \
+    -E "tun-mtu 1500"                                      \
+    -E "mssfix 1300"                                       \
+    "${OWN_DNS[@]}"                                        \
+    -p "route remote_host 255.255.255.255 net_gateway"     \
+    "${ROUTES[@]}"                                         \
+    "${CLIENT_IP[@]}"                                      \
+    -e "log /etc/openvpn/openvpn.log"
+
+sed -i '/comp-lzo/d' ./data/openvpn.conf
+echo "[DONE!] Succeeded in creating the OpenVPN server config!"
+
+# Ref: https://github.com/kylemanna/docker-openvpn/blob/master/docs/docker-compose.md
+# usage: ovpn_genconfig
+#          -u SERVER_PUBLIC_URL
+#         [-e EXTRA_SERVER_CONFIG ]
+#         [-E EXTRA_CLIENT_CONFIG ]
+#         [-f FRAGMENT ]
+#         [-n DNS_SERVER ...]
+#         [-p PUSH ...]
+#         [-r ROUTE ...]
+#         [-s SERVER_SUBNET]
+# optional arguments:
+#  -2    Enable two factor authentication using Google Authenticator.
+#  -a    Authenticate packets with HMAC using the given message digest algorithm (auth).
+#  -b    Disable 'push block-outside-dns' (Useless?)
+#  -c    Enable client-to-client option
+#  -C    A list of allowable TLS ciphers delimited by a colon (cipher).
+#  -d    Disable default route
+#  -D    Do not push default dns servers (8.8.8.8 and 8.8.8.4)
+#  -k    Set keepalive. Default: '10 60'
+#  -m    Set client MTU
+#  -N    Configure NAT to access external server network
+#  -t    ***** Use TAP device (instead of TUN device) *****
+#  -T    Encrypt packets with the given cipher algorithm instead of the default one (tls-cipher).
+#  -z    Enable comp-lzo compression.

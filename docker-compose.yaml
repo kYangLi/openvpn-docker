@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  openvpn:
+    container_name: OpenVPN
+    image: kylemanna/openvpn:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      # DO NOT forget to reconfig the 'ovpn-server-param.sh' accordingly.
+      - "39998:1194/udp"
+    volumes:
+      - ${PWD}/data:/etc/openvpn:rw
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - EASYRSA_KEY_SIZE=4096
+    sysctls:
+      net.ipv4.conf.all.forwarding: 1
+      net.ipv6.conf.default.forwarding: 1
+      net.ipv6.conf.all.disable_ipv6: 0
+      net.ipv6.conf.all.forwarding: 1

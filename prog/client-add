@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# Ref: https://github.com/kylemanna/docker-openvpn/blob/master/docs/docker-compose.md
+
+
+# Determine necessary parameters
+# -- EXEC command
+EXEC=" run --rm ";
+if [ "$(docker ps -q -f name=openvpn)" ]; then
+  # Docekr is running
+  EXEC=" exec "
+else
+  # Docker is stoped
+  EXEC=" run --rm "
+fi
+
+# -- Client name
+echo ""
+echo "=========================== All Users =============================="
+docker compose ${EXEC} openvpn ovpn_listclients
+echo "===================================================================="
+echo "[input] Please input the target clients."
+read -p "> " client_name
+echo "[input] Disable the client PEM password? (y/[n])"
+read -p "> " is_no_passwd
+no_passwd=''
+if [ "${is_no_passwd}" == "y" ]; then
+  no_passwd='nopass'
+fi
+
+
+# Create the cilent
+docker compose ${EXEC} openvpn easyrsa build-client-full ${client_name} ${no_passwd}
+
+
+# Write the client conf file (.ovpn)
+docker compose ${EXEC} openvpn ovpn_getclient ${client_name} > data/clients/${client_name}.ovpn
+
+
+# List all current clients
+echo ""
+echo "=========================== All Users =============================="
+docker compose ${EXEC} openvpn ovpn_listclients
+echo "===================================================================="
+echo ""
+
+

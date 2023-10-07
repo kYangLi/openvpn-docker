@@ -1,9 +1,14 @@
-.PHONY: up dn down stop restart renew update genconf reset-all-which-you-should-be-careful add del list ls
+.PHONY: up log uplog dn down stop restart renew update genconf reset-all-which-you-should-be-careful add del list ls
 
 
 # Docker system related command
 up:
 	docker compose up -d
+
+log:
+	docker compose logs -f
+
+uplog: up log
 
 dn:
 	docker compose down
